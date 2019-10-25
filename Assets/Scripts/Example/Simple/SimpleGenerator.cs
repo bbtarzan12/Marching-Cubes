@@ -11,7 +11,8 @@ public class SimpleGenerator : MonoBehaviour
 {
     [SerializeField] Vector3 chunkScale = new Vector3(1f, 1f, 1f);
     [SerializeField] Vector3Int cellSize = new Vector3Int(32, 32, 32);
-    [Range(0.001f, 0.1f)] [SerializeField] float frequency = 0.05f;
+    [Range(0.001f, 1f)] [SerializeField] float frequency = 0.05f;
+    [Range(1, 5)] [SerializeField] int octaves = 3;
     [SerializeField] Material material;
     [SerializeField] bool enableJob;
     [SerializeField] bool enableTriangleIndexing;
@@ -35,6 +36,7 @@ public class SimpleGenerator : MonoBehaviour
         [ReadOnly] public Vector3Int cellSize;
         [ReadOnly] public Vector3Int gridSize;
         [ReadOnly] public float frequency;
+        [ReadOnly] public int octaves;
         
         [WriteOnly] public NativeArray<Voxel> voxels;
         
@@ -44,7 +46,7 @@ public class SimpleGenerator : MonoBehaviour
             if (gridPosition.x >= cellSize.x || gridPosition.y >= cellSize.y || gridPosition.z >= cellSize.z)
                 return;
 
-            voxels[index] = new Voxel {Density = Noise.Perlin3D(gridPosition, frequency)};
+            voxels[index] = new Voxel {Density = Noise.Perlin3DFractal(gridPosition, frequency, octaves)};
         }
         
         Vector3Int To3DIndex(int index)
@@ -86,7 +88,7 @@ public class SimpleGenerator : MonoBehaviour
         {
             NativeArray<Voxel> nativeVoxels = new NativeArray<Voxel>(gridSize.x * gridSize.y * gridSize.z, Allocator.TempJob);
 
-            VoxelNoiseJob noiseJob = new VoxelNoiseJob {cellSize = cellSize, gridSize = gridSize, voxels = nativeVoxels, frequency = frequency};
+            VoxelNoiseJob noiseJob = new VoxelNoiseJob {cellSize = cellSize, gridSize = gridSize, voxels = nativeVoxels, frequency = frequency, octaves = octaves};
             JobHandle noiseJobHandle = noiseJob.Schedule(gridSize.x * gridSize.y * gridSize.z, 32);
             noiseJobHandle.Complete();
             

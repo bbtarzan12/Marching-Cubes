@@ -199,6 +199,23 @@ public static class Noise
 		float t = Smooth(t0);
 		return Mathf.Lerp(v0, v1, t) * 2f;
 	}
+
+	public static float Perlin2DFractal(Vector3 point, float frequency, int octaves = 1, float amplitude = 1.0f, float lacunarity = 2.0f, float persistence = 0.5f)
+	{
+		float output    = 0.0f;
+		float denom     = 0.0f;
+
+		for (int i = 0; i < octaves; i++) 
+		{
+			output += (amplitude * Perlin2D(point * frequency, frequency));
+			denom += amplitude;
+
+			frequency *= lacunarity;
+			amplitude *= persistence;
+		}
+
+		return (output / denom);
+	}
 	
 	public static float Perlin2D (Vector3 point, float frequency) {
 		point *= frequency;
@@ -231,6 +248,23 @@ public static class Noise
 			Mathf.Lerp(v00, v10, tx),
 			Mathf.Lerp(v01, v11, tx),
 			ty) * sqr2;
+	}
+	
+	public static float Perlin3DFractal(Vector3 point, float frequency, int octaves = 1, float amplitude = 1.0f, float lacunarity = 2.0f, float persistence = 0.5f)
+	{
+		float output    = 0.0f;
+		float denom     = 0.0f;
+
+		for (int i = 0; i < octaves; i++) 
+		{
+			output += (amplitude * Perlin3D(point * frequency, frequency));
+			denom += amplitude;
+
+			frequency *= lacunarity;
+			amplitude *= persistence;
+		}
+
+		return (output / denom);
 	}
 	
 	public static float Perlin3D (Vector3 point, float frequency) {

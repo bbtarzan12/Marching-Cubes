@@ -49,8 +49,11 @@ public class TerrainChunk : MonoBehaviour
             Vector3Int gridPosition = To3DIndex(index);
             Vector3 worldPosition = gridPosition + chunkWorldPosition;
 
+            Vector3 World2DPosition = new Vector3(worldPosition.x, worldPosition.z);
+            
             float density = -worldPosition.y;
-            density += Noise.Perlin2D(new Vector3(worldPosition.x, worldPosition.z), frequency) * 5f;
+            density += Noise.Perlin2DFractal(World2DPosition, frequency, 5) * 10f;
+            density += Noise.Perlin2DFractal(World2DPosition, frequency * 0.5f, 3) * 50f;
             
             voxels[index] = new Voxel {Density = density};
         }
@@ -136,7 +139,7 @@ public class TerrainChunk : MonoBehaviour
                     {
                         Vector3 worldPosition = new Vector3(x, y, z) + chunkWorldPosition;
                         float density = -worldPosition.y;
-                        density += Noise.Perlin2D(new Vector3(worldPosition.x, worldPosition.z), generator.Frequency) * 5f;
+                        density += Noise.Perlin2DFractal(new Vector3(worldPosition.x, worldPosition.z), generator.Frequency, 5) * 25f;
                         voxels[x, y, z].Density = density;
                     }
                 }

@@ -5,7 +5,7 @@ public class TerrainGenerator : MonoBehaviour
 {
     Dictionary<Vector3Int, TerrainChunk> chunks = new Dictionary<Vector3Int, TerrainChunk>();
     [SerializeField] Vector3Int cellSize = new Vector3Int(32, 32, 32);
-    [Range(0.001f, 0.1f)] [SerializeField] float frequency = 0.05f;
+    [Range(0.001f, 1f)] [SerializeField] float frequency = 0.05f;
     [SerializeField] Vector3 chunkScale = Vector3.one; 
     [SerializeField] Vector3Int chunkSpawnSize = Vector3Int.one * 3;
     [SerializeField] int maxGenerateChunksInFrame = 5;

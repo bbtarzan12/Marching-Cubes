@@ -263,7 +263,7 @@ MonoBehaviour:
   frequency: 0.0695
   material: {fileID: 2100000, guid: 815e4d95e6ad26045858a3c79160a3a5, type: 2}
   enableJob: 1
-  enableTriangleIndexing: 1
+  enableTriangleIndexing: 0
 --- !u!33 &1141234689
 MeshFilter:
   m_ObjectHideFlags: 0
