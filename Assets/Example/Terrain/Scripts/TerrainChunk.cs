@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(MeshFilter))]
@@ -29,10 +30,9 @@ public class TerrainChunk : MonoBehaviour
     // For Avoid GC
     List<Vector3> vertices = new List<Vector3>();
     List<int> triangles = new List<int>();
+    List<Color> colors = new List<Color>();
 
     public bool Dirty => dirty;
-    public bool Updating => updating;
-    public Vector3Int ChunkPosition => chunkPosition;
 
     [BurstCompile]
     struct VoxelNoiseJob : IJobParallelFor
@@ -54,8 +54,8 @@ public class TerrainChunk : MonoBehaviour
             float density = -worldPosition.y;
             density += Noise.Perlin2DFractal(World2DPosition, frequency, 5) * 10f;
             density += Noise.Perlin2DFractal(World2DPosition, frequency * 0.5f, 3) * 50f;
-            
-            voxels[index] = new Voxel {Density = density};
+            float height = Mathf.Clamp01((worldPosition.y + 25f) / 40f);
+            voxels[index] = new Voxel {Density = density, Height = height};
         }
         
         Vector3Int To3DIndex(int index)
@@ -74,7 +74,7 @@ public class TerrainChunk : MonoBehaviour
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
         meshCollider = GetComponent<MeshCollider>();
-        mesh = new Mesh();
+        mesh = new Mesh {indexFormat = IndexFormat.UInt32};
     }
 
     void Start()
@@ -138,9 +138,15 @@ public class TerrainChunk : MonoBehaviour
                     for (int z = 0; z < gridSize.z; z++)
                     {
                         Vector3 worldPosition = new Vector3(x, y, z) + chunkWorldPosition;
+                        Vector3 World2DPosition = new Vector3(worldPosition.x, worldPosition.z);
+
                         float density = -worldPosition.y;
-                        density += Noise.Perlin2DFractal(new Vector3(worldPosition.x, worldPosition.z), generator.Frequency, 5) * 25f;
+                        density += Noise.Perlin2DFractal(World2DPosition, generator.Frequency, 5) * 10f;
+                        density += Noise.Perlin2DFractal(World2DPosition, generator.Frequency * 0.5f, 3) * 50f;
+                        float height = Mathf.Clamp01((worldPosition.y + 25f) / 40f);
+                        
                         voxels[x, y, z].Density = density;
+                        voxels[x, y, z].Height = height;
                     }
                 }
             }   
@@ -154,15 +160,16 @@ public class TerrainChunk : MonoBehaviour
 
         if (generator.EnableJob)
         {
-            MarchingCubes.GenerateMarchingCubesWithJob(voxels, generator.CellSize, generator.ChunkScale, generator.EnableTriangleIndexing, vertices, triangles);
+            MarchingCubes.GenerateMarchingCubesWithJob(voxels, generator.CellSize, generator.ChunkScale, generator.EnableTriangleIndexing, vertices, triangles, colors);
         }
         else
         {
-            MarchingCubes.GenerateMarchingCubes(voxels, generator.CellSize, generator.ChunkScale, generator.EnableTriangleIndexing, vertices, triangles);
+            MarchingCubes.GenerateMarchingCubes(voxels, generator.CellSize, generator.ChunkScale, generator.EnableTriangleIndexing, vertices, triangles, colors);
         }
         mesh.Clear();
         mesh.SetVertices(vertices);
         mesh.SetTriangles(triangles, 0);
+        mesh.SetColors(colors);
         mesh.RecalculateNormals();
 
         meshCollider.sharedMesh = mesh;

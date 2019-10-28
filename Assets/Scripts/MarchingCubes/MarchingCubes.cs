@@ -51,6 +51,7 @@ public static class MarchingCubes
 		[ReadOnly] public Vector3 chunkScale;
 		
 		[NativeDisableParallelForRestriction] [WriteOnly] public NativeArray<Vector3> vertices;
+		[NativeDisableParallelForRestriction] [WriteOnly] public NativeArray<Color> colors;
 		[WriteOnly] public NativeCounter.Concurrent counter;
 		
 		public unsafe void Execute(int index)
@@ -61,6 +62,7 @@ public static class MarchingCubes
 			
 			float* densities = stackalloc float[8];
 			Vector3* interpolatedPoints = stackalloc Vector3[12];
+			float height = voxels[to1DIndex(gridPosition)].Height;
 			
 			for (int i = 0; i < 8; i++)
             {
@@ -110,6 +112,10 @@ public static class MarchingCubes
                 vertices[triangleIndex] = vertex2;
                 vertices[triangleIndex + 1] = vertex1;
                 vertices[triangleIndex + 2] = vertex0;
+                
+                colors[triangleIndex] = new Color(height, height, height, 1);
+                colors[triangleIndex + 1] = new Color(height, height, height, 1);
+                colors[triangleIndex + 2] = new Color(height, height, height, 1);
             }
 		}
 
@@ -140,10 +146,11 @@ public static class MarchingCubes
 		}
 	}
 	
-	public static void GenerateMarchingCubesWithJob(Voxel[,,] voxels, Vector3Int cellSize, Vector3 chunkScale, bool triangleIndexing, List<Vector3> vertices, List<int> triangles)
+	public static void GenerateMarchingCubesWithJob(Voxel[,,] voxels, Vector3Int cellSize, Vector3 chunkScale, bool triangleIndexing, List<Vector3> vertices, List<int> triangles, List<Color> colors)
 	{
 		NativeArray<Vector3> nativeVertices = new NativeArray<Vector3>(15 * cellSize.x * cellSize.y * cellSize.z, Allocator.TempJob);
 		NativeArray<int> nativeTriangles = new NativeArray<int>(15 * cellSize.x * cellSize.y * cellSize.z, Allocator.TempJob);
+		NativeArray<Color> nativeColors = new NativeArray<Color>(15 * cellSize.x * cellSize.y * cellSize.z, Allocator.TempJob);
 		NativeCounter counter = new NativeCounter(Allocator.TempJob);
 		NativeArray<Voxel> nativeVoxels = new NativeArray<Voxel>(voxels.Length, Allocator.TempJob);
 
@@ -154,6 +161,7 @@ public static class MarchingCubes
 			vertices = nativeVertices,
 			counter = counter.ToConcurrent(),
 			voxels = nativeVoxels,
+			colors = nativeColors,
 			cellSize = cellSize,
 			gridSize = cellSize + Vector3Int.one,
 			chunkScale = chunkScale,
@@ -169,7 +177,7 @@ public static class MarchingCubes
 			
 			if (triangleIndexing)
 			{
-				verticeSize = TriangleIndexingForJob(nativeVertices, nativeTriangles, verticeSize);
+				verticeSize = TriangleIndexingForJob(nativeVertices, nativeTriangles, nativeColors, verticeSize);
 			}
 			else
 			{
@@ -183,22 +191,26 @@ public static class MarchingCubes
 			}
 
 			NativeSlice<Vector3> nativeSliceVertices = new NativeSlice<Vector3>(nativeVertices, 0, verticeSize);
+			NativeSlice<Color> nativeSliceColors = new NativeSlice<Color>(nativeColors, 0, verticeSize);
 			NativeSlice<int> nativeSliceTriangles = new NativeSlice<int>(nativeTriangles, 0, triangleSize);
 		
+			colors.Clear();
 			vertices.Clear();
 			triangles.Clear();
 		
 			vertices.NativeAddRange(nativeSliceVertices);
 			triangles.NativeAddRange(nativeSliceTriangles);	
+			colors.NativeAddRange(nativeSliceColors);
 		}
 
 		counter.Dispose();
 		nativeVertices.Dispose();
 		nativeTriangles.Dispose();
 		nativeVoxels.Dispose();
+		nativeColors.Dispose();
 	}
 
-	static int TriangleIndexingForJob(NativeArray<Vector3> vertices, NativeArray<int> triangles, int arraySize)
+	static int TriangleIndexingForJob(NativeArray<Vector3> vertices, NativeArray<int> triangles, NativeArray<Color> colors,  int arraySize)
 	{
 		// Fix IL2CPP
 		if (points == null)
@@ -220,6 +232,7 @@ public static class MarchingCubes
 				points.Add(vertices[i], numTriangles);
 				triangles[i] = numTriangles;
 				vertices[numTriangles] = vertices[i];
+				colors[numTriangles] = colors[i];
 			}
 		}
 
@@ -229,7 +242,7 @@ public static class MarchingCubes
 	// For avoid GC
 	static Dictionary<Vector3, int> points;
 
-	public static unsafe void GenerateMarchingCubes(Voxel[,,] voxels, Vector3Int cellSize, Vector3 chunkScale, bool triangleIndexing, List<Vector3> vertices, List<int> triangles)
+	public static unsafe void GenerateMarchingCubes(Voxel[,,] voxels, Vector3Int cellSize, Vector3 chunkScale, bool triangleIndexing, List<Vector3> vertices, List<int> triangles, List<Color> colors)
 	{
 		// Fix IL2CPP
 		if (points == null)
@@ -240,6 +253,7 @@ public static class MarchingCubes
 		points.Clear();
 		vertices.Clear();
 		triangles.Clear();
+		colors.Clear();
 		
 		float* densities = stackalloc float[8];
 		Vector3* interpolatedPoints = stackalloc Vector3[12];
@@ -250,7 +264,8 @@ public static class MarchingCubes
 				for (int z = 0; z < cellSize.z; z++)
 				{
 					Vector3Int gridPosition = new Vector3Int(x, y, z);
-
+					float height = voxels[x, y, z].Height;
+					
 					for (int i = 0; i < 8; i++)
 					{
 						Vector3Int cornerPosition = CornerTable[i] + gridPosition;
@@ -305,6 +320,7 @@ public static class MarchingCubes
 							{
 								int index = points.Count;
 								points.Add(vertex2, index);
+								colors.Add(new Color(height, height, height, 1));
 								triangles.Add(index);
 							}
 
@@ -316,6 +332,7 @@ public static class MarchingCubes
 							{
 								int index = points.Count;
 								points.Add(vertex1, index);
+								colors.Add(new Color(height, height, height, 1));
 								triangles.Add(index);
 							}
 
@@ -327,6 +344,7 @@ public static class MarchingCubes
 							{
 								int index = points.Count;
 								points.Add(vertex0, index);
+								colors.Add(new Color(height, height, height, 1));
 								triangles.Add(index);
 							}
 						}
@@ -340,6 +358,10 @@ public static class MarchingCubes
 							triangles.Add(numTriangles + 2);
 							triangles.Add(numTriangles + 1);
 							triangles.Add(numTriangles);
+							
+							colors.Add(new Color(height, height, height, 1));
+							colors.Add(new Color(height, height, height, 1));
+							colors.Add(new Color(height, height, height, 1));
 						}
 					}
 				}
